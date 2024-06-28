@@ -91,7 +91,9 @@ $ pip install -U wxPython
 # Build Kicad
 
 ```
+$ git clone https://gitlab.com/jeffwheeler/kicad.git
 $ cd kicad
+$ git checkout add_cadence_allegro_importer
 $ mkdir -p build/release
 $ cd build/release
 $ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DKICAD_USE_EGL=yes ../../
