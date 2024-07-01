@@ -103,7 +103,7 @@ $ make -j
 # To Run Kicad Without Installation
 
 ```
-$ export KICAD_RUN_FROM_BUILD_DIR=build/release
+$ export KICAD_RUN_FROM_BUILD_DIR=$PWD/build/release
 $ cd build/release/kicad
 $ ./kicad
 ```
