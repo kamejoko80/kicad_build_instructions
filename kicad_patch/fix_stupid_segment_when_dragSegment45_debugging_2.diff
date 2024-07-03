@@ -1,0 +1,379 @@
+diff --git a/pcbnew/router/pns_dragger.cpp b/pcbnew/router/pns_dragger.cpp
+index bad99cf114..6349590901 100644
+--- a/pcbnew/router/pns_dragger.cpp
++++ b/pcbnew/router/pns_dragger.cpp
+@@ -553,6 +553,8 @@ bool DRAGGER::dragWalkaround( const VECTOR2I& aP )
+ {
+     bool ok = false;
+ 
++	printf("Henry drag workaround\r\n");
++
+     // fixme: rewrite using shared_ptr...
+     if( m_lastNode )
+     {
+@@ -574,13 +576,18 @@ bool DRAGGER::dragWalkaround( const VECTOR2I& aP )
+ 
+         dragged.SetSnapThreshhold( thresh );
+ 
+-        if( m_mode == DM_SEGMENT )
++        if( m_mode == DM_SEGMENT ) {
++			//printf("Henry DM_SEGMENT\r\n");
+             dragged.DragSegment( aP, m_draggedSegmentIndex );
++		}	
+         else
++		{	
++			printf("Henry dragged.DragSegment\r\n");
+             dragged.DragCorner( aP, m_draggedSegmentIndex );
+-
++        }   
+         if ( m_world->CheckColliding( &dragged ) )
+         {
++			printf("Henry tryWalkaround\r\n");
+             ok = tryWalkaround( m_lastNode, dragged, draggedWalk );
+         }
+         else
+@@ -594,6 +601,7 @@ bool DRAGGER::dragWalkaround( const VECTOR2I& aP )
+ 
+         if( ok )
+         {
++			printf("Henry ok draggedWalk\r\n");
+             PNS_DBG( Dbg(), AddShape, &origLine.CLine(), BLUE, 50000, wxT( "drag-orig-line" ) );
+             PNS_DBG( Dbg(), AddShape, &draggedWalk.CLine(), CYAN, 75000, wxT( "drag-walk" ) );
+             m_lastNode->Remove( origLine );
+@@ -751,6 +759,8 @@ bool DRAGGER::Drag( const VECTOR2I& aP )
+ 
+     bool ret = false;
+ 
++	printf("Henry DRAGGER::Drag: m_currentMode = %d\r\n", m_currentMode);
++
+     if( m_freeAngleMode || m_forceMarkObstaclesMode )
+     {
+         ret = dragMarkObstacles( aP );
+diff --git a/pcbnew/router/pns_line.cpp b/pcbnew/router/pns_line.cpp
+index 8eb1f9352d..9c394a2446 100644
+--- a/pcbnew/router/pns_line.cpp
++++ b/pcbnew/router/pns_line.cpp
+@@ -33,6 +33,9 @@
+ 
+ #include <geometry/shape_rect.h>
+ 
++extern bool have_pads;
++extern bool have_vias;
++
+ namespace PNS {
+ 
+ LINE::LINE( const LINE& aOther )
+@@ -767,12 +770,15 @@ void LINE::DragCorner( const VECTOR2I& aP, int aIndex, bool aFreeAngle )
+ 
+ void LINE::DragSegment( const VECTOR2I& aP, int aIndex, bool aFreeAngle )
+ {
++	printf("Henry LINE::DragSegment\r\n");
++	
+     if( aFreeAngle )
+     {
+         assert( false );
+     }
+     else
+     {
++		printf("Henry dragSegment45\r\n");
+         dragSegment45( aP, aIndex );
+     }
+ }
+@@ -871,6 +877,8 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+ 
+     wxASSERT( aIndex < m_line.PointCount() );
+ 
++	printf("Henry dragSegment45 aIndex %d\r\n");
++
+     SEG guideA[2], guideB[2];
+     int index = aIndex;
+ 
+@@ -883,16 +891,19 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+ 
+     if( index == 0 || path.IsPtOnArc( index ) )
+     {
++		//printf("Henry dragSegment45 insert 1\r\n");
+         path.Insert( index > 0 ? index + 1 : 0, path.CPoint( index ) );
+         index++;
+     }
+ 
+     if( index == path.SegmentCount() - 1 )
+     {
++		//printf("Henry dragSegment45 insert 2\r\n");
+         path.Insert( path.PointCount() - 1, path.CPoint( -1 ) );
+     }
+     else if( path.IsPtOnArc( index + 1 ) )
+     {
++		//printf("Henry dragSegment45 insert 3\r\n");
+         path.Insert( index + 1, path.CPoint( index + 1 ) );
+     }
+ 
+@@ -907,22 +918,26 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+ 
+     if( dir_prev == drag_dir )
+     {
+-        dir_prev = dir_prev.Left();
++        //printf("Henry dir_prev == drag_dir\r\n");
++		dir_prev = dir_prev.Left();
+         path.Insert( index, path.CPoint( index ) );
+         index++;
+     }
+     else if( dir_prev == DIRECTION_45::UNDEFINED )
+     {
++		//printf("Henry dir_prev == DIRECTION_45::UNDEFINED\r\n");
+         dir_prev = drag_dir.Left();
+     }
+ 
+     if( dir_next == drag_dir )
+     {
++		//printf("dir_next == drag_dir\r\n");
+         dir_next = dir_next.Right();
+         path.Insert( index + 1, path.CPoint( index + 1 ) );
+     }
+     else if( dir_next == DIRECTION_45::UNDEFINED )
+     {
++		//printf("dir_next == DIRECTION_45::UNDEFINED\r\n");
+         dir_next = drag_dir.Right();
+     }
+ 
+@@ -932,6 +947,7 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+ 
+     if( aIndex == 0 )
+     {
++		//printf("aIndex == 0\r\n");
+         guideA[0] = SEG( dragged.A, dragged.A + drag_dir.Right().ToVector() );
+         guideA[1] = SEG( dragged.A, dragged.A + drag_dir.Left().ToVector() );
+     }
+@@ -940,6 +956,7 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+         if( dir_prev.Angle( drag_dir )
+                 & ( DIRECTION_45::ANG_OBTUSE | DIRECTION_45::ANG_HALF_FULL ) )
+         {
++			//printf("dir_prev.Angle & DIRECTION_45::ANG_OBTUSE | DIRECTION_45::ANG_HALF_FULL\r\n");
+             guideA[0] = SEG( s_prev.A, s_prev.A + drag_dir.Left().ToVector() );
+             guideA[1] = SEG( s_prev.A, s_prev.A + drag_dir.Right().ToVector() );
+         }
+@@ -949,11 +966,14 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+ 
+     if( aIndex == m_line.SegmentCount() - 1 )
+     {
++		//printf("aIndex == m_line.SegmentCount() - 1\r\n");
+         guideB[0] = SEG( dragged.B, dragged.B + drag_dir.Right().ToVector() );
+         guideB[1] = SEG( dragged.B, dragged.B + drag_dir.Left().ToVector() );
+     }
+     else
+     {
++		//printf("aIndex != m_line.SegmentCount() - 1\r\n");
++		
+         if( dir_next.Angle( drag_dir )
+                 & ( DIRECTION_45::ANG_OBTUSE | DIRECTION_45::ANG_HALF_FULL ) )
+         {
+@@ -1021,14 +1041,69 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+         }
+     }
+ 
++	printf("Henry aIndex =%d\r\n", aIndex);
++	printf("m_line.SegmentCount() before = %d\r\n", m_line.SegmentCount());
++
++	// Store the previous segment count
++	unsigned int OrigSegmentCount = m_line.SegmentCount();
++
++#if 0 // Debug to know about the line, and Cpoint
++	int pcount = m_line.PointCount();
++	printf("======> orig m_line point count = %d\r\n", pcount);
++	
++	VECTOR2I c_point;
++
++	for (int i = 0; i < pcount; i++)
++	{
++		c_point = m_line.CPoint(i);
++	    printf("======> cpoint(%d) x = %d\r\n", i, c_point.x);
++	    printf("======> cpoint(%d) y = %d\r\n", i, c_point.y);	
++	}
++#endif
++
++
+     if( m_line.PointCount() == 1 )
++	{
++		printf("m_line.PointCount() == 1\r\n");
+         m_line = best;
++	}
+     else if( aIndex == 0 )
++	{
++		printf("aIndex == 0\r\n");
+         m_line.Replace( 0, 1, best );
++	}
+     else if( aIndex == m_line.SegmentCount() - 1 )
++	{
++		printf("aIndex == m_line.SegmentCount() - 1\r\n");
+         m_line.Replace( -2, -1, best );
++	}
+     else
++	{
++		printf("others\r\n");
+         m_line.Replace( aIndex, aIndex + 1, best );
++	}
++	
++	//m_line.Remove(m_line.SegmentCount()-2, m_line.SegmentCount()-2);
++	//printf("Henry m_line.SegmentCount() after = %d\r\n", m_line.SegmentCount());
++	//m_line.Remove(m_line.SegmentCount(), m_line.SegmentCount());
++
++	// Check last Cpoint of m_line
++	//const VECTOR2I last_point;	
++	//last_point = m_line.CLastPoint();
++	//printf("======> last point x = %d\r\n", last_point.x);
++	//printf("======> last point y = %d\r\n", last_point.y);
++
++	if(have_pads == false && have_vias == false){
++		// Remove the stupid segment
++		if (aIndex == 0) 
++		{
++			m_line.Remove(0, 0);
++		}
++		else if(aIndex == OrigSegmentCount-1)
++		{
++			m_line.Remove(m_line.SegmentCount(), m_line.SegmentCount());
++		}	
++	}
+ 
+     m_line.Simplify();
+ }
+diff --git a/pcbnew/router/pns_router.cpp b/pcbnew/router/pns_router.cpp
+index 6e78130b5d..e679442ed9 100644
+--- a/pcbnew/router/pns_router.cpp
++++ b/pcbnew/router/pns_router.cpp
+@@ -613,6 +613,8 @@ bool ROUTER::moveDragging( const VECTOR2I& aP, ITEM* aEndItem )
+ {
+     m_iface->EraseView();
+ 
++	//printf("Henry moveDragging x, y %d, %d\r\n", aP.x, aP.y);
++
+     bool ret = m_dragger->Drag( aP );
+     ITEM_SET dragged = m_dragger->Traces();
+ 
+diff --git a/pcbnew/router/router_tool.cpp b/pcbnew/router/router_tool.cpp
+index 2cec48dc74..221b780b0d 100644
+--- a/pcbnew/router/router_tool.cpp
++++ b/pcbnew/router/router_tool.cpp
+@@ -81,6 +81,9 @@ using namespace std::placeholders;
+ 
+ #include <pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.h>
+ 
++bool have_pads;
++bool have_vias;
++
+ using namespace KIGFX;
+ 
+ /**
+@@ -2122,6 +2125,8 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
+ {
+     const PCB_SELECTION& selection = m_toolMgr->GetTool<PCB_SELECTION_TOOL>()->GetSelection();
+ 
++	printf("Henry InlineDrag\r\n");
++
+     if( selection.Empty() )
+     {
+         m_toolMgr->RunAction<CLIENT_SELECTION_FILTER>( PCB_ACTIONS::selectionCursor,
+@@ -2133,12 +2138,64 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
+ 
+     BOARD_ITEM* item = static_cast<BOARD_ITEM*>( selection.Front() );
+ 
++	printf("Item type = %d\r\n", item->Type());
++
+     if( item->Type() != PCB_TRACE_T
+          && item->Type() != PCB_VIA_T
+          && item->Type() != PCB_FOOTPRINT_T )
+     {
+         return 0;
+     }
++	
++	// Find the selected track and check if there is any pads on it
++	BOARD_CONNECTED_ITEM* con_item = static_cast<BOARD_CONNECTED_ITEM*>( selection.Front() );
++	TRACKS tracks = board()->TracksInNet(con_item->GetNetCode());	
++    PAD* pad;	
++	
++	have_pads = false;
++	
++    for (const PCB_TRACK* track : tracks) {
++		if (track) {
++			if(track->IsSelected()){
++				printf("=======> Selected track name =");
++				std::cout << track->GetNetname().ToStdString() << std::endl;
++			
++				pad = board()->GetPad(track, ENDPOINT_START);
++				if(pad){
++					printf("====> Start pad is available\r\n");
++					printf("====> X=%d, Y=%d\r\n", pad->GetPosition().x, pad->GetPosition().y);
++                    have_pads = true;					
++				}
++
++				pad = board()->GetPad(track, ENDPOINT_END);
++				if(pad){
++					printf("====> End pad is available\r\n");
++					printf("====> X=%d, Y=%d\r\n", pad->GetPosition().x, pad->GetPosition().y);
++					have_pads = true;
++				}				
++			}
++		}
++	}
++
++	std::shared_ptr<CONNECTIVITY_DATA>  pConnectedData = board()->GetConnectivity();
++	std::vector<PCB_VIA*> vias;
++	std::vector<PAD*> pads;
++	pConnectedData->GetConnectedPadsAndVias(con_item, &pads, &vias );
++	
++	have_vias = false;
++	
++	for (const PCB_VIA* via : vias) {
++		// Process each connected via
++		if(via){
++			printf("===========> Found via\r\n");
++			printf("===========> Via netcode = %d\r\n", via->GetNetCode());
++			printf("===========> Track netcode = %d\r\n", con_item->GetNetCode());
++			
++			if(via->GetNetCode() == con_item->GetNetCode()){
++				have_vias = true;
++			}
++		}
++	}
+ 
+     std::set<FOOTPRINT*> footprints;
+ 
+@@ -2250,8 +2307,20 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
+         p = snapToItem( startItem, p0 );
+         m_startItem = startItem;
+ 
++		printf("Henry startItem = %p\r\n", startItem);
++		printf("Henry item kind str: %s\r\n", m_startItem->KindStr().c_str());
++		printf("Henry item isroutable = %d\r\n", m_startItem->IsRoutable());
++
+         if( m_startItem->Net() )
+             highlightNets( true, { m_startItem->Net() } );
++		
++		// Henry get rastnet for net:
++		
++		//if(connectivityData->GetRatsnestForNet(m_startItem->Net()) != NULL)
++		//{
++		//	printf("======> Unrouted net \r\n");
++		//}
++		
+     }
+     else if( !footprints.empty() )
+     {
+@@ -2342,6 +2411,8 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
+             updateEndItem( *evt );
+             m_router->Move( m_endSnapPoint, m_endItem );
+ 
++			//printf("Henry isMotion\r\n");	
++
+             view()->ClearPreview();
+ 
+             if( !footprints.empty() )
+@@ -2432,6 +2503,8 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
+         {
+             bool forceFinish = false;
+             bool forceCommit = evt->Modifier( MD_CTRL );
++			
++			printf("Henry hasMouseMoved\r\n");
+ 
+             updateEndItem( *evt );
+             m_router->FixRoute( m_endSnapPoint, m_endItem, forceFinish, forceCommit );

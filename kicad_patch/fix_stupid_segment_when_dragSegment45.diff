@@ -1,0 +1,112 @@
+diff --git a/pcbnew/router/pns_line.cpp b/pcbnew/router/pns_line.cpp
+index 8eb1f9352d..fd62d22a69 100644
+--- a/pcbnew/router/pns_line.cpp
++++ b/pcbnew/router/pns_line.cpp
+@@ -33,6 +33,9 @@
+ 
+ #include <geometry/shape_rect.h>
+ 
++extern bool have_pads;
++extern bool have_vias;
++
+ namespace PNS {
+ 
+ LINE::LINE( const LINE& aOther )
+@@ -555,7 +558,7 @@ bool LINE::Walkaround( const SHAPE_LINE_CHAIN& aObstacle, SHAPE_LINE_CHAIN& aPat
+ const SHAPE_LINE_CHAIN SEGMENT::Hull( int aClearance, int aWalkaroundThickness, int aLayer ) const
+ {
+     /*DEBUG_DECORATOR* debugDecorator = ROUTER::GetInstance()->GetInterface()->GetDebugDecorator();
+-    
++
+     PNS_DBG( debugDecorator, Message, wxString::Format( wxT( "seghull %d %d" ), aWalkaroundThickness, aClearance ) );
+     PNS_DBG(debugDecorator, AddShape, &m_seg, RED, 0, wxT("theseg") );
+         */
+@@ -1021,6 +1024,9 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+         }
+     }
+ 
++    /* Henry Dang added: Store the previous segment count */
++    unsigned int OrigSegmentCount = m_line.SegmentCount();
++
+     if( m_line.PointCount() == 1 )
+         m_line = best;
+     else if( aIndex == 0 )
+@@ -1030,6 +1036,20 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+     else
+         m_line.Replace( aIndex, aIndex + 1, best );
+ 
++	/* Henry Dang added: Remove the stupid segment
++	   if there is no any pads or vias in the selected track */
++	if(have_pads == false && have_vias == false){
++
++		if (aIndex == 0)
++		{
++			m_line.Remove(0, 0);
++		}
++		else if(aIndex == OrigSegmentCount-1)
++		{
++			m_line.Remove(m_line.SegmentCount(), m_line.SegmentCount());
++		}
++	}
++
+     m_line.Simplify();
+ }
+ 
+diff --git a/pcbnew/router/router_tool.cpp b/pcbnew/router/router_tool.cpp
+index 2cec48dc74..249e8d888b 100644
+--- a/pcbnew/router/router_tool.cpp
++++ b/pcbnew/router/router_tool.cpp
+@@ -81,6 +81,9 @@ using namespace std::placeholders;
+ 
+ #include <pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.h>
+ 
++bool have_pads;
++bool have_vias;
++
+ using namespace KIGFX;
+ 
+ /**
+@@ -2140,6 +2143,43 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
+         return 0;
+     }
+ 
++    /* Henry Dang added: Find the selected track and check if there is any pads or vias on it */
++    BOARD_CONNECTED_ITEM* con_item = static_cast<BOARD_CONNECTED_ITEM*>( selection.Front() );
++    TRACKS tracks = board()->TracksInNet(con_item->GetNetCode());
++    PAD* pad;
++
++    have_pads = false;
++
++    for (const PCB_TRACK* track : tracks) {
++        if (track) {
++            if(track->IsSelected()){
++                pad = board()->GetPad(track, ENDPOINT_START);
++                if(pad){
++                    have_pads = true;
++                }
++                pad = board()->GetPad(track, ENDPOINT_END);
++                if(pad){
++                    have_pads = true;
++                }
++            }
++        }
++    }
++
++    std::shared_ptr<CONNECTIVITY_DATA>  pConnectedData = board()->GetConnectivity();
++    std::vector<PCB_VIA*> vias;
++    std::vector<PAD*> pads;
++    pConnectedData->GetConnectedPadsAndVias(con_item, &pads, &vias );
++
++    have_vias = false;
++
++    for (const PCB_VIA* via : vias) {
++        if(via){
++            if(via->GetNetCode() == con_item->GetNetCode()){
++                have_vias = true;
++            }
++        }
++    }
++
+     std::set<FOOTPRINT*> footprints;
+ 
+     if( item->Type() == PCB_FOOTPRINT_T )
