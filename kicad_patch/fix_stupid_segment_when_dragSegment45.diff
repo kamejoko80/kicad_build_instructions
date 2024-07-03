@@ -1,5 +1,5 @@
 diff --git a/pcbnew/router/pns_line.cpp b/pcbnew/router/pns_line.cpp
-index 8eb1f9352d..fd62d22a69 100644
+index 8eb1f9352d..0e71fe8971 100644
 --- a/pcbnew/router/pns_line.cpp
 +++ b/pcbnew/router/pns_line.cpp
 @@ -33,6 +33,9 @@
@@ -21,39 +21,25 @@ index 8eb1f9352d..fd62d22a69 100644
      PNS_DBG( debugDecorator, Message, wxString::Format( wxT( "seghull %d %d" ), aWalkaroundThickness, aClearance ) );
      PNS_DBG(debugDecorator, AddShape, &m_seg, RED, 0, wxT("theseg") );
          */
-@@ -1021,6 +1024,9 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+@@ -1021,6 +1024,16 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
          }
      }
  
-+    /* Henry Dang added: Store the previous segment count */
-+    unsigned int OrigSegmentCount = m_line.SegmentCount();
++    /* Henry Dang: If there is no any pads or vias in the selected track
++       then we can remove the stupid segment */
++	if(have_pads == false && have_vias == false){
++        if( aIndex == 0 ) {
++            best.Remove(0, 0);
++        } else {
++            best.Remove(best.SegmentCount(), best.SegmentCount());
++        }
++    }
 +
      if( m_line.PointCount() == 1 )
          m_line = best;
      else if( aIndex == 0 )
-@@ -1030,6 +1036,20 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
-     else
-         m_line.Replace( aIndex, aIndex + 1, best );
- 
-+	/* Henry Dang added: Remove the stupid segment
-+	   if there is no any pads or vias in the selected track */
-+	if(have_pads == false && have_vias == false){
-+
-+		if (aIndex == 0)
-+		{
-+			m_line.Remove(0, 0);
-+		}
-+		else if(aIndex == OrigSegmentCount-1)
-+		{
-+			m_line.Remove(m_line.SegmentCount(), m_line.SegmentCount());
-+		}
-+	}
-+
-     m_line.Simplify();
- }
- 
 diff --git a/pcbnew/router/router_tool.cpp b/pcbnew/router/router_tool.cpp
-index 2cec48dc74..249e8d888b 100644
+index 2cec48dc74..a7c5350d9b 100644
 --- a/pcbnew/router/router_tool.cpp
 +++ b/pcbnew/router/router_tool.cpp
 @@ -81,6 +81,9 @@ using namespace std::placeholders;
@@ -70,7 +56,7 @@ index 2cec48dc74..249e8d888b 100644
          return 0;
      }
  
-+    /* Henry Dang added: Find the selected track and check if there is any pads or vias on it */
++    /* Henry Dang: Find the selected track and check if there is any pads or vias on it */
 +    BOARD_CONNECTED_ITEM* con_item = static_cast<BOARD_CONNECTED_ITEM*>( selection.Front() );
 +    TRACKS tracks = board()->TracksInNet(con_item->GetNetCode());
 +    PAD* pad;
