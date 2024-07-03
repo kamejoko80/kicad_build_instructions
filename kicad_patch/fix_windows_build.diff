@@ -1,0 +1,26 @@
+diff --git a/pcbnew/pcb_io/allegro/CMakeLists.txt b/pcbnew/pcb_io/allegro/CMakeLists.txt
+index 7445c397e1..665815e881 100644
+--- a/pcbnew/pcb_io/allegro/CMakeLists.txt
++++ b/pcbnew/pcb_io/allegro/CMakeLists.txt
+@@ -8,6 +8,7 @@ add_library( allegro2pcbnew STATIC ${ALLEGRO2PCBNEW_SRCS} )
+ 
+ target_link_libraries (allegro2pcbnew
+     pcbcommon
++    ws2_32
+     )
+ 
+ target_include_directories( allegro2pcbnew
+diff --git a/pcbnew/pcb_io/allegro/allegro_file.cpp b/pcbnew/pcb_io/allegro/allegro_file.cpp
+index 1aa57e50b9..bcda95c2e8 100644
+--- a/pcbnew/pcb_io/allegro/allegro_file.cpp
++++ b/pcbnew/pcb_io/allegro/allegro_file.cpp
+@@ -2,7 +2,9 @@
+ 
+ ALLEGRO_FILE::ALLEGRO_FILE( const wxString& aFilePath )
+ {
++#if 0 /* Henry */
+     file_mapping mapped_file;
+     mapped_file = file_mapping( aFilePath.c_str(), read_only );
+     region = mapped_region( mapped_file, read_only );
++#endif
+ };
