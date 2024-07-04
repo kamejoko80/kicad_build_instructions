@@ -1,0 +1,144 @@
+diff --git a/pcbnew/router/pns_line.cpp b/pcbnew/router/pns_line.cpp
+index 8eb1f9352d..e143396885 100644
+--- a/pcbnew/router/pns_line.cpp
++++ b/pcbnew/router/pns_line.cpp
+@@ -33,6 +33,9 @@
+ 
+ #include <geometry/shape_rect.h>
+ 
++extern bool have_pads;
++extern bool have_vias;
++
+ namespace PNS {
+ 
+ LINE::LINE( const LINE& aOther )
+@@ -555,7 +558,7 @@ bool LINE::Walkaround( const SHAPE_LINE_CHAIN& aObstacle, SHAPE_LINE_CHAIN& aPat
+ const SHAPE_LINE_CHAIN SEGMENT::Hull( int aClearance, int aWalkaroundThickness, int aLayer ) const
+ {
+     /*DEBUG_DECORATOR* debugDecorator = ROUTER::GetInstance()->GetInterface()->GetDebugDecorator();
+-    
++
+     PNS_DBG( debugDecorator, Message, wxString::Format( wxT( "seghull %d %d" ), aWalkaroundThickness, aClearance ) );
+     PNS_DBG(debugDecorator, AddShape, &m_seg, RED, 0, wxT("theseg") );
+         */
+@@ -1021,6 +1024,54 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+         }
+     }
+ 
++#if 0
++    // Henry Temporally disable for debugging 
++    /* Henry Dang: If there is no any pads or vias in the selected track
++       then we can remove the stupid segment */
++	if(have_pads == false && have_vias == false){
++        if( aIndex == 0 ) {
++            best.Remove(0, 0);
++        } else {
++            best.Remove(best.SegmentCount(), best.SegmentCount());
++        }
++    }
++#endif
++
++    int l1 = m_line.Segment(-1).Length(); // Get last segment length of m_line
++    int l2 = best.Segment(-2).Length();   // Get second last segment lenght of best
++    
++    //printf("====>l1 = %d\r\n", l1);
++    //printf("====>l2 = %d\r\n", l2);
++    
++    // modify last segment of best incase of 
++    // aIndex == m_line.SegmentCount() - 1
++    // dragging along y axis
++    //if(l1 >= l2){
++        
++        SEG seg1_1 = m_line.Segment(-1); // Last m_line segment
++        SEG seg2_1 = best.Segment(-1);   // Last best segment
++        
++        printf("======>aIndex = %d\r\n", aIndex);
++        
++        // Check dragging direction is along y axis
++        if( ((seg2_1.A.x < seg1_1.B.x) && (seg2_1.A.y > seg1_1.B.y)) || ((seg2_1.A.x < seg1_1.B.x) && (seg2_1.A.y < seg1_1.B.y)) ){
++            printf("=======> Draging along y axis\r\n");
++            //best.Remove(-1, -1); // Remove last Segment
++            //VECTOR2I ip = VECTOR2I(best.Segment(-1).B.x + l1 - l2, best.Segment(-1).B.y);
++            //best.Append(ip);
++        }
++        
++        // Check dragging direction is along x axis
++        if( ((seg2_1.A.y < seg1_1.B.y) && (seg2_1.A.x < seg1_1.B.x)) || ((seg2_1.A.y < seg1_1.B.y) && (seg2_1.A.x > seg1_1.B.x)) ){
++            printf("=======> Draging along x axis\r\n");
++        }
++
++    //}
++
++    // Henry for debugging replace mline with best 
++    m_line.Replace( 0, -1, best );
++
++#if 0
+     if( m_line.PointCount() == 1 )
+         m_line = best;
+     else if( aIndex == 0 )
+@@ -1029,6 +1080,7 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+         m_line.Replace( -2, -1, best );
+     else
+         m_line.Replace( aIndex, aIndex + 1, best );
++#endif
+ 
+     m_line.Simplify();
+ }
+diff --git a/pcbnew/router/router_tool.cpp b/pcbnew/router/router_tool.cpp
+index 2cec48dc74..a7c5350d9b 100644
+--- a/pcbnew/router/router_tool.cpp
++++ b/pcbnew/router/router_tool.cpp
+@@ -81,6 +81,9 @@ using namespace std::placeholders;
+ 
+ #include <pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.h>
+ 
++bool have_pads;
++bool have_vias;
++
+ using namespace KIGFX;
+ 
+ /**
+@@ -2140,6 +2143,43 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
+         return 0;
+     }
+ 
++    /* Henry Dang: Find the selected track and check if there is any pads or vias on it */
++    BOARD_CONNECTED_ITEM* con_item = static_cast<BOARD_CONNECTED_ITEM*>( selection.Front() );
++    TRACKS tracks = board()->TracksInNet(con_item->GetNetCode());
++    PAD* pad;
++
++    have_pads = false;
++
++    for (const PCB_TRACK* track : tracks) {
++        if (track) {
++            if(track->IsSelected()){
++                pad = board()->GetPad(track, ENDPOINT_START);
++                if(pad){
++                    have_pads = true;
++                }
++                pad = board()->GetPad(track, ENDPOINT_END);
++                if(pad){
++                    have_pads = true;
++                }
++            }
++        }
++    }
++
++    std::shared_ptr<CONNECTIVITY_DATA>  pConnectedData = board()->GetConnectivity();
++    std::vector<PCB_VIA*> vias;
++    std::vector<PAD*> pads;
++    pConnectedData->GetConnectedPadsAndVias(con_item, &pads, &vias );
++
++    have_vias = false;
++
++    for (const PCB_VIA* via : vias) {
++        if(via){
++            if(via->GetNetCode() == con_item->GetNetCode()){
++                have_vias = true;
++            }
++        }
++    }
++
+     std::set<FOOTPRINT*> footprints;
+ 
+     if( item->Type() == PCB_FOOTPRINT_T )
