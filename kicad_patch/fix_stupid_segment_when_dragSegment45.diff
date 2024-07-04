@@ -1,5 +1,5 @@
 diff --git a/pcbnew/router/pns_line.cpp b/pcbnew/router/pns_line.cpp
-index 8eb1f9352d..0e71fe8971 100644
+index 8eb1f9352d..b7afa4a298 100644
 --- a/pcbnew/router/pns_line.cpp
 +++ b/pcbnew/router/pns_line.cpp
 @@ -33,6 +33,9 @@
@@ -12,26 +12,45 @@ index 8eb1f9352d..0e71fe8971 100644
  namespace PNS {
  
  LINE::LINE( const LINE& aOther )
-@@ -555,7 +558,7 @@ bool LINE::Walkaround( const SHAPE_LINE_CHAIN& aObstacle, SHAPE_LINE_CHAIN& aPat
+@@ -555,7 +558,6 @@ bool LINE::Walkaround( const SHAPE_LINE_CHAIN& aObstacle, SHAPE_LINE_CHAIN& aPat
  const SHAPE_LINE_CHAIN SEGMENT::Hull( int aClearance, int aWalkaroundThickness, int aLayer ) const
  {
      /*DEBUG_DECORATOR* debugDecorator = ROUTER::GetInstance()->GetInterface()->GetDebugDecorator();
 -    
-+
      PNS_DBG( debugDecorator, Message, wxString::Format( wxT( "seghull %d %d" ), aWalkaroundThickness, aClearance ) );
      PNS_DBG(debugDecorator, AddShape, &m_seg, RED, 0, wxT("theseg") );
          */
-@@ -1021,6 +1024,16 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
+@@ -1021,6 +1023,36 @@ void LINE::dragSegment45( const VECTOR2I& aP, int aIndex )
          }
      }
  
 +    /* Henry Dang: If there is no any pads or vias in the selected track
 +       then we can remove the stupid segment */
-+	if(have_pads == false && have_vias == false){
++    if(have_pads == false && have_vias == false) {
 +        if( aIndex == 0 ) {
 +            best.Remove(0, 0);
-+        } else {
-+            best.Remove(best.SegmentCount(), best.SegmentCount());
++        } else if( aIndex == m_line.SegmentCount() - 1 ) {
++            int l1 = m_line.Segment(-1).Length();
++            int l2 = best.Segment(-2).Length();
++
++            VECTOR2I A =  m_line.Segment(-1).A;
++            VECTOR2I B =  m_line.Segment(-1).B;
++
++            if (l2 > 0) {
++                // Check for dragging along x axis
++                if ((A.x == B.x) && (A.y != B.y)) {
++                    best.Remove(-1, -1); // Remove last segment of best
++                    VECTOR2I ip = VECTOR2I(best.Segment(-2).B.x, best.Segment(-2).B.y + l1);
++                    best.Append(ip);
++                }
++
++                // Check for dragging along y axis
++                if((A.y == B.y) && (A.x != B.x)) {
++                    best.Remove(-1, -1); // Remove last segment of best
++                    VECTOR2I ip = VECTOR2I(best.Segment(-2).B.x + l1, best.Segment(-2).B.y);
++                    best.Append(ip);
++                }
++            }
 +        }
 +    }
 +
